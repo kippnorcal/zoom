@@ -177,7 +177,7 @@
         "zoomus": {
             "editable": true,
             "git": "https://github.com/dchess/zoomus.git",
-            "ref": "37bface52c9a3b5e706e1ceec6e4f584cd9e0e14"
+            "ref": "9f88f5a138b6b11cd6a07ce9e433f14ce353fea8"
         }
     },
     "develop": {}
