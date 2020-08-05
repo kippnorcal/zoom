@@ -41,6 +41,7 @@ DEBUG_MODE = int(os.getenv("DEBUG_MODE", default=0))
 
 
 def set_logging():
+    """Configure logging level and outputs"""
     logging.basicConfig(
         handlers=[
             logging.FileHandler(filename="app.log", mode="w+"),
@@ -63,6 +64,7 @@ class DatabaseTypeError(Exception):
 
 
 def db_connection():
+    """Set database connection based on type"""
     db_type = os.getenv("DB_TYPE")
     default_config = {
         "schema": os.getenv("DB_SCHEMA"),

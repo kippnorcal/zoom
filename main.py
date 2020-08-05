@@ -15,11 +15,16 @@ from mailer import Mailer
 
 
 class Connector:
+    """
+    Data connector for extracting Zoom data from API, transforming into
+    dataframes, and loading into database.
+    """"
     def __init__(self):
         self.client = ZoomClient(os.getenv("ZOOM_KEY"), os.getenv("ZOOM_SECRET"))
         self.sql = config.db_connection()
 
     def drop_table(self, table_name):
+        """Drop table before loading new data to reset schema on load"""
         try:
             table = self.sql.table(table_name)
             self.sql.engine.execute(DropTable(table))
@@ -31,7 +36,8 @@ class Connector:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
     )
-    def import_users(self):
+    def load_users(self):
+        """Load Zoom user data in order to query meetings"""
         page = 1
         table_name = "Zoom_Users"
         response = self.client.user.list(page_size=300, page_number=page).json()
@@ -49,6 +55,7 @@ class Connector:
                 page += 1
 
     def _get_user_ids(self):
+        """Get list of user ids to iterate API calls for meetings"""
         users = pd.read_sql_table(
             table_name="Zoom_Users", con=self.sql.engine, schema=self.sql.schema
         )
@@ -58,7 +65,8 @@ class Connector:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
     )
-    def import_meetings(self):
+    def load_meetings(self):
+        """Load Zoom meeting data in order to query past meetings"""
         table_name = "Zoom_Meetings"
         self.drop_table(table_name)
         for user_id in self._get_user_ids():
@@ -80,6 +88,7 @@ class Connector:
                 )
 
     def _get_meeting_ids(self):
+        """Get list of meeting ids to iterate API calls for past meetings"""
         meetings = pd.read_sql_table(
             table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
         )
@@ -92,7 +101,8 @@ class Connector:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
     )
-    def import_past_meetings(self):
+    def load_past_meetings(self):
+        """Load Zoom past meeting data in order to query participants"""
         table_name = "Zoom_PastMeetings"
         self.drop_table(table_name)
         for meeting_id in self._get_meeting_ids():
@@ -112,6 +122,7 @@ class Connector:
                 params["next_page_token"] = page_token
 
     def _get_past_meeting_uuids(self):
+        """Get list of past meeting uuids to iterate API calls for participants"""
         meetings = pd.read_sql_table(
             table_name="Zoom_PastMeetings", con=self.sql.engine, schema=self.sql.schema
         )
@@ -121,7 +132,8 @@ class Connector:
     @retry(
         stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
     )
-    def import_participants(self):
+    def load_participants(self):
+        """Load Zoom meeting participants"""
         table_name = "Zoom_Participants"
         self.drop_table(table_name)
         for uuid in self._get_past_meeting_uuids():
@@ -144,10 +156,10 @@ class Connector:
 def main():
     config.set_logging()
     connector = Connector()
-    connector.import_users()
-    connector.import_meetings()
-    connector.import_past_meetings()
-    connector.import_participants()
+    connector.load_users()
+    connector.load_meetings()
+    connector.load_past_meetings()
+    connector.load_participants()
 
 
 if __name__ == "__main__":
