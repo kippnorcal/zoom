@@ -16,7 +16,6 @@ from mailer import Mailer
 
 class Connector:
     def __init__(self):
-        # self.client = zoom.Client()
         self.client = ZoomClient(os.getenv("ZOOM_KEY"), os.getenv("ZOOM_SECRET"))
         self.sql = config.db_connection()
 
