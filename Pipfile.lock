@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "e8d34389101e12eede0d3486cf5adaee526a26ae9f80a19ecf4ca6008a271856"
+            "sha256": "3e81f893f186241d4f787c2b96bd264a488cfbdc4d84246f446aba92f3bb8407"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -97,6 +97,24 @@
             ],
             "version": "==1.7.1"
         },
+        "pyodbc": {
+            "hashes": [
+                "sha256:1b8ed92bd50c6d83dec88153880405434bc261bb013ca02809827bb3ffbb319a",
+                "sha256:2f0079951016729b51babebd6aa8112ecef53e11eea3116036c4ec7105f41514",
+                "sha256:3a8212be2e49ff29d71d40a9c1af2cdaa71dcc7246cf80a0f9c7254de47ea4a9",
+                "sha256:52a42be6561932d74bbcc5b0f54dcdcf2eceae3b03192fc0db64a5020bbca057",
+                "sha256:7113daddcf346ff095904c568d1e1019f567da74058b4e69099e23bc98211691",
+                "sha256:852b5deeeb3366af8b4408efed993501708be45d221881bce60c9aac54be726a",
+                "sha256:8fa4147bf3bff1b66a9b1a0063094ca1686b9319383e711e7c193c2b4728b572",
+                "sha256:a1af49a2f4f0abbafdc018d510e31561d3f9472725dc1d49cce3bd2e10e9ec18",
+                "sha256:bce7e41c7cfc06ec976245f361221dfdd0f04e804010cf255cbb36985f6c3406",
+                "sha256:d3ad340e0053b6ec4130957efbcecce6de48d68e7e78792ea7588e27ffa629f1",
+                "sha256:d4ffeab51dcc03c4c1a9a200f70999ce9b827c91defc4f5740633a6d47d3a206",
+                "sha256:d9d1469786519c3b545168b45db7c3ece3b493c89d51bb5732d38a2eac6d0863",
+                "sha256:eb9e7a4a5126f2695f307b2a6b0b94cbfccfe7481be2c0d33f5456515328f1cc"
+            ],
+            "version": "==4.0.30"
+        },
         "python-dateutil": {
             "hashes": [
                 "sha256:73ebfe9dbf22e832286dafa60473e4cd239f8592f699aa5adaf10050e6e1823c",
@@ -160,12 +178,23 @@
             "version": "==1.3.18"
         },
         "sqlsorcery": {
+            "extras": [
+                "mssql"
+            ],
             "hashes": [
                 "sha256:a0534d395eafc65b25ce797f53ab7da1e9de4a574f9d3267a1a41516d5947262",
                 "sha256:c8e41d7f598b83a92e065442de4d8487eb7b5a284a8278bf432e20b46749f419"
             ],
             "index": "pypi",
             "version": "==0.1.4"
+        },
+        "tenacity": {
+            "hashes": [
+                "sha256:29ae90e7faf488a8628432154bb34ace1cca58244c6ea399fd33f066ac71339a",
+                "sha256:5a5d3dcd46381abe8b4f82b5736b8726fd3160c6c7161f53f8af7f1eb9b82173"
+            ],
+            "index": "pypi",
+            "version": "==6.2.0"
         },
         "urllib3": {
             "hashes": [
@@ -177,7 +206,7 @@
         "zoomus": {
             "editable": true,
             "git": "https://github.com/dchess/zoomus.git",
-            "ref": "9f88f5a138b6b11cd6a07ce9e433f14ce353fea8"
+            "ref": "374bad01375877c6379ab4eb369952113db17b95"
         }
     },
     "develop": {}

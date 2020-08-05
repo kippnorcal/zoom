@@ -9,7 +9,8 @@ verify_ssl = true
 zoomus = {editable = true,git = "https://github.com/dchess/zoomus.git",ref = "past_meeting"}
 requests = "*"
 pandas = "*"
-sqlsorcery = "*"
+sqlsorcery = {extras = ["mssql"],version = "*"}
+tenacity = "*"
 
 [requires]
 python_version = "3.7"
