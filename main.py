@@ -18,9 +18,10 @@ class Connector:
     """
     Data connector for extracting Zoom data from API, transforming into
     dataframes, and loading into database.
-    """"
+    """
+
     def __init__(self):
-        self.client = ZoomClient(os.getenv("ZOOM_KEY"), os.getenv("ZOOM_SECRET"))
+        self.client = ZoomClient(config.ZOOM_KEY, config.ZOOM_SECRET)
         self.sql = config.db_connection()
 
     def drop_table(self, table_name):

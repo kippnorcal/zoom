@@ -5,6 +5,9 @@ import sys
 from sqlsorcery import SQLite, PostgreSQL, MSSQL
 
 ENABLE_MAILER = int(os.getenv("ENABLE_MAILER", default=0))
+DEBUG_MODE = int(os.getenv("DEBUG_MODE", default=0))
+ZOOM_KEY = os.getenv("ZOOM_KEY")
+ZOOM_SECRET = os.getenv("ZOOM_SECRET")
 
 USER_COLUMNS = [
     "id",
@@ -36,8 +39,6 @@ MEETING_COLUMNS = [
 ]
 
 PARTICIPANT_COLUMNS = ["id", "name", "user_email"]
-
-DEBUG_MODE = int(os.getenv("DEBUG_MODE", default=0))
 
 
 def set_logging():
