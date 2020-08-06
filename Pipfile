@@ -1,0 +1,15 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+zoomus = {editable = true,git = "https://github.com/dchess/zoomus.git",ref = "past_meeting"}
+requests = "*"
+sqlsorcery = {extras = ["mssql"],version = "*"}
+tenacity = "*"
+
+[requires]
+python_version = "3.7"
