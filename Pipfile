@@ -6,7 +6,7 @@ verify_ssl = true
 [dev-packages]
 
 [packages]
-zoomus = {editable = true,git = "https://github.com/dchess/zoomus.git",ref = "past_meeting"}
+zoomus = {editable = true,git = "https://github.com/dchess/zoomus.git",ref = "groups"}
 requests = "*"
 sqlsorcery = {extras = ["mssql"],version = "*"}
 tenacity = "*"
