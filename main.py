@@ -153,14 +153,89 @@ class Connector:
                 page_token = response.get("next_page_token")
                 params["next_page_token"] = page_token
 
+    def load_groups(self):
+        table_name = "Zoom_Groups"
+        response = self.client.group.list().json()
+        if response:
+            self.drop_table(table_name)
+        results = response.get("groups")
+        if results:
+            groups = pd.DataFrame(results)
+            self.sql.insert_into(table_name, groups)
+            logging.info(f"Inserted {len(groups)} records into {table_name}")
+
+    def _get_group_ids(self, groupname=None):
+        """Get list of group ids to iterate API calls for group members"""
+        groups = pd.read_sql_table(
+            table_name="Zoom_Groups", con=self.sql.engine, schema=self.sql.schema
+        )
+        if groupname:
+            groups = groups[groups["name"] == groupname]
+        group_ids = groups["id"].values.flatten().tolist()
+        return group_ids
+
+    def load_group_members(self):
+        """Load Zoom group member data"""
+        table_name = "Zoom_GroupMembers"
+        self.drop_table(table_name)
+        for group_id in self._get_group_ids():
+            page = 1
+            params = {"groupid": group_id, "page_size": 300, "page_number": page}
+            response = self.client.group.list_members(**params).json()
+            page_count = response["page_count"]
+            while page <= page_count:
+                response = self.client.group.list_members(**params).json()
+                results = response.get("members")
+                if results:
+                    members = pd.DataFrame(results)
+                    members["groupId"] = group_id
+                    self.sql.insert_into(table_name, members)
+                    logging.info(f"Inserted {len(members)} records into {table_name}")
+                    page += 1
+                    params["page"] = page
+
+    def _get_students(self):
+        """Query database for new students without Zoom accounts"""
+        return pd.read_sql_table(
+            "vw_Zoom_NewStudentAccounts", con=self.sql.engine, schema=self.sql.schema
+        )
+
+    def create_student_accounts(self):
+        """Create Zoom accounts for students and add to Students group"""
+        students = self._get_students()
+        students["type"] = 1
+        students = students.to_dict(orient="records")
+        emails = [{"email": student["email"]} for student in students]
+        student_group_id = self._get_group_ids("Students")[0]
+        # Create accounts
+        for student in students:
+            try:
+                r = self.client.user.create(action="create", user_info=student)
+                r.raise_for_status()
+                logging.info(f"Created account for {student['email']}")
+            except requests.exceptions.HTTPError as e:
+                logging.error(e)
+        # Add to Students group
+        try:
+            r = self.client.group.add_members(groupid=student_group_id, members=emails)
+            r.raise_for_status()
+            logging.info(f"Added {len(emails)} new users to Students group.")
+        except requests.exceptions.HTTPError as e:
+            logging.error(e)
+            logging.error(r.text)
+
 
 def main():
     config.set_logging()
     connector = Connector()
     connector.load_users()
-    connector.load_meetings()
-    connector.load_past_meetings()
-    connector.load_participants()
+    connector.create_student_accounts()
+    connector.load_users()
+    connector.load_groups()
+    connector.load_group_members()
+    # connector.load_meetings()
+    # connector.load_past_meetings()
+    # connector.load_participants()
 
 
 if __name__ == "__main__":
