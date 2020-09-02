@@ -230,12 +230,13 @@ def main():
     config.set_logging()
     connector = Connector()
     connector.load_users()
+    connector.create_student_accounts()
+    connector.load_users()
     connector.load_groups()
     connector.load_group_members()
-    connector.create_student_accounts()
-    connector.load_meetings()
-    connector.load_past_meetings()
-    connector.load_participants()
+    # connector.load_meetings()
+    # connector.load_past_meetings()
+    # connector.load_participants()
 
 
 if __name__ == "__main__":
