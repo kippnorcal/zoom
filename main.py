@@ -5,7 +5,6 @@ import traceback
 from urllib.parse import quote
 
 import pandas as pd
-import requests
 from sqlalchemy.schema import DropTable
 from sqlalchemy.exc import NoSuchTableError
 from tenacity import retry, wait_exponential, stop_after_attempt
