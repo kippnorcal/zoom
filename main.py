@@ -154,6 +154,7 @@ class Connector:
                 params["next_page_token"] = page_token
 
     def load_groups(self):
+        """Load Zoom permission groups"""
         table_name = "Zoom_Groups"
         response = self.client.group.list().json()
         if response:
@@ -203,7 +204,8 @@ class Connector:
     def create_student_accounts(self):
         """Create Zoom accounts for students and add to Students group"""
         students = self._get_students()
-        students["type"] = 1
+        BASIC_USER = 1
+        students["type"] = BASIC_USER
         students = students.to_dict(orient="records")
         emails = [{"email": student["email"]} for student in students]
         student_group_id = self._get_group_ids("Students")[0]
@@ -229,13 +231,12 @@ def main():
     config.set_logging()
     connector = Connector()
     connector.load_users()
-    connector.create_student_accounts()
-    connector.load_users()
     connector.load_groups()
     connector.load_group_members()
-    # connector.load_meetings()
-    # connector.load_past_meetings()
-    # connector.load_participants()
+    connector.create_student_accounts()
+    connector.load_meetings()
+    connector.load_past_meetings()
+    connector.load_participants()
 
 
 if __name__ == "__main__":
