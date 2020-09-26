@@ -193,7 +193,6 @@ class Connector:
             "to": run_date,
         }
         while page_token:
-            print(params)
             response = self.client.metric.list_meetings(**params).json()
             results = response.get("meetings")
             if results:
