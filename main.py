@@ -210,7 +210,9 @@ class Connector:
         if meetings:
             df = pd.DataFrame(meetings)
             self.sql.insert_into(table_name, df)
-            logging.debug(f"Inserted {len(df)} meeting records into {table_name}")
+            logging.debug(
+                f"Inserted {len(df)} meeting records into {table_name} for {run_date.strftime('%Y-%m-%d')}"
+            )
 
     def get_school_start_date(self):
         today = datetime.datetime.today()
