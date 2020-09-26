@@ -25,21 +25,6 @@ USER_COLUMNS = [
     "verified",
 ]
 
-MEETING_COLUMNS = [
-    "uuid",
-    "id",
-    "host_id",
-    "topic",
-    "type",
-    "start_time",
-    "duration",
-    "timezone",
-    "created_at",
-    "join_url",
-]
-
-PARTICIPANT_COLUMNS = ["id", "name", "user_email"]
-
 
 def set_logging():
     """Configure logging level and outputs"""
@@ -83,3 +68,4 @@ def db_connection():
         return SQLite(path=os.getenv("DB"))
     else:
         raise DatabaseTypeError()
+
