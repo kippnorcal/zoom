@@ -12,6 +12,7 @@ from zoomus import ZoomClient
 
 import config
 from mailer import Mailer
+from timer import elapsed
 
 
 RETRY_PARAMS = {
@@ -40,6 +41,7 @@ class Connector:
                 f"No such table {table_name} exists to drop. This command ignored."
             )
 
+    @elapsed
     @retry(**RETRY_PARAMS)
     def load_users(self):
         """Load Zoom user data in order to query meetings"""
@@ -84,6 +86,7 @@ class Connector:
         meeting_ids = meetings["uuid"].values.flatten().tolist()
         return meeting_ids
 
+    @elapsed
     @retry(**RETRY_PARAMS)
     def load_participants(self):
         """Load Zoom meeting participants"""
@@ -104,6 +107,8 @@ class Connector:
                 page_token = response.get("next_page_token")
                 params["next_page_token"] = page_token
 
+    @elapsed
+    @retry(**RETRY_PARAMS)
     def load_groups(self):
         """Load Zoom permission groups"""
         table_name = "Zoom_Groups"
@@ -126,6 +131,7 @@ class Connector:
         group_ids = groups["id"].values.flatten().tolist()
         return group_ids
 
+    @elapsed
     @retry(**RETRY_PARAMS)
     def load_group_members(self):
         """Load Zoom group member data"""
@@ -153,6 +159,7 @@ class Connector:
             "vw_Zoom_NewStudentAccounts", con=self.sql.engine, schema=self.sql.schema
         )
 
+    @elapsed
     def create_student_accounts(self):
         """Create Zoom accounts for students and add to Students group"""
         students = self._get_students()
@@ -178,6 +185,7 @@ class Connector:
             logging.error(e)
             logging.error(r.text)
 
+    @elapsed
     @retry(**RETRY_PARAMS)
     def load_meetings(self):
         run_date = self.get_last_meeting_date()
@@ -230,10 +238,10 @@ class Connector:
 def main():
     config.set_logging()
     connector = Connector()
-    connector.load_users()
-    connector.load_groups()
-    connector.load_group_members()
-    connector.create_student_accounts()
+    # connector.load_users()
+    # connector.load_groups()
+    # connector.load_group_members()
+    # connector.create_student_accounts()
     connector.load_meetings()
     connector.load_participants()
 
