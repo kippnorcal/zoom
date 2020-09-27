@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import time
 import traceback
 from urllib.parse import quote
 
@@ -96,6 +97,9 @@ class Connector:
             params = {"meeting_id": uuid, "page_size": 300, "type": "past"}
             while page_token:
                 response = self.client.metric.list_participants(**params).json()
+                if response.get("code") == 429:
+                    logging.info("Rate limit reached; waiting 10 seconds...")
+                    time.sleep(10)
                 results = response.get("participants")
                 if results:
                     results = [dict(item, meeting_uuid=uuid) for item in results]
@@ -202,6 +206,9 @@ class Connector:
         }
         while page_token:
             response = self.client.metric.list_meetings(**params).json()
+            if response.get("code") == 429:
+                logging.info("Rate limit reached; waiting 60 seconds...")
+                time.sleep(60)
             results = response.get("meetings")
             if results:
                 meetings.extend(results)
