@@ -192,6 +192,12 @@ class Connector:
     @elapsed
     @retry(**RETRY_PARAMS)
     def load_meetings(self):
+        """
+        Load Zoom Meetings data for the prior day based on the last
+        date data is available for in the database. If no prior data
+        exists, it will pull from the start of August for the current
+        school year.
+        """
         run_date = self.get_last_meeting_date()
         if run_date >= datetime.datetime.today().date():
             return
@@ -222,6 +228,7 @@ class Connector:
             )
 
     def get_school_start_date(self):
+        """Get the first day in Aug of the current school year"""
         today = datetime.datetime.today()
         if today.month > 6:
             year = today.year
@@ -230,6 +237,10 @@ class Connector:
         return datetime.date(year, 8, 1)
 
     def get_last_meeting_date(self):
+        """
+        Get the last date that meeting data is available for in the
+        database, otherwise return the first day in August.
+        """
         date = self.get_school_start_date()
         if self.sql.engine.has_table("Zoom_Meetings", schema=self.sql.schema):
             df = pd.read_sql_table(
@@ -247,10 +258,10 @@ class Connector:
 def main():
     config.set_logging()
     connector = Connector()
-    # connector.load_users()
-    # connector.load_groups()
-    # connector.load_group_members()
-    # connector.create_student_accounts()
+    connector.load_users()
+    connector.load_groups()
+    connector.load_group_members()
+    connector.create_student_accounts()
     connector.load_meetings()
     connector.load_participants()
 
