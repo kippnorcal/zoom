@@ -87,7 +87,9 @@ class Connector:
     def load_participants(self):
         """Load Zoom meeting participants"""
         table_name = "Zoom_Participants"
-        for uuid in self._get_meeting_ids():
+        uuids = self._get_meeting_ids()
+        total_participants = 0
+        for uuid in uuids:
             page_token = True
             params = {"meeting_id": uuid, "page_size": 300, "type": "past"}
             while page_token:
@@ -98,13 +100,15 @@ class Connector:
                 results = response.get("participants")
                 if results:
                     results = [dict(item, meeting_uuid=uuid) for item in results]
+                    total_participants += len(results)
                     participants = pd.DataFrame(results)
                     self.sql.insert_into(table_name, participants)
-                    logging.info(
+                    logging.debug(
                         f"Inserted  {len(participants)} participants for meeting {uuid} into {table_name}"
                     )
                 page_token = response.get("next_page_token")
                 params["next_page_token"] = page_token
+        logging.info(f"Inserted {total_participants} for {len(uuids)} meetings into {table_name}")
 
     @elapsed
     @retry(**RETRY_PARAMS)
@@ -218,7 +222,7 @@ class Connector:
         if meetings:
             df = pd.DataFrame(meetings)
             self.sql.insert_into(table_name, df)
-            logging.debug(
+            logging.info(
                 f"Inserted {len(df)} meeting records into {table_name} for {run_date.strftime('%Y-%m-%d')}"
             )
 
