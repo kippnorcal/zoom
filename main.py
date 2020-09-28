@@ -62,14 +62,6 @@ class Connector:
                 logging.info(f"Inserted {len(users)} records into {table_name}")
                 page += 1
 
-    def _get_user_ids(self):
-        """Get list of user ids to iterate API calls for meetings"""
-        users = pd.read_sql_table(
-            table_name="Zoom_Users", con=self.sql.engine, schema=self.sql.schema
-        )
-        user_ids = users["id"].values.flatten().tolist()
-        return user_ids
-
     def _get_meeting_ids(self):
         """
         Get list of all meeting uuids that there is not participants 
