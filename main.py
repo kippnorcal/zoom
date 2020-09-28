@@ -48,6 +48,7 @@ class Connector:
         """Load Zoom user data in order to query meetings"""
         page = 1
         table_name = "Zoom_Users"
+        total_users = 0
         response = self.client.user.list(page_size=300, page_number=page).json()
         page_count = response["page_count"]
         if response:
@@ -56,11 +57,13 @@ class Connector:
             response = self.client.user.list(page_size=300, page_number=page).json()
             results = response.get("users")
             if results:
+                total_users += len(results)
                 users = pd.DataFrame(results)
                 users = users.reindex(columns=config.USER_COLUMNS)
                 self.sql.insert_into(table_name, users)
-                logging.info(f"Inserted {len(users)} records into {table_name}")
+                logging.debug(f"Inserted {len(users)} records into {table_name}")
                 page += 1
+        logging.info(f"Inserted {total_users} users into {table_name}")
 
     def _get_meeting_ids(self):
         """
@@ -108,7 +111,9 @@ class Connector:
                     )
                 page_token = response.get("next_page_token")
                 params["next_page_token"] = page_token
-        logging.info(f"Inserted {total_participants} for {len(uuids)} meetings into {table_name}")
+        logging.info(
+            f"Inserted {total_participants} participants for {len(uuids)} meetings into {table_name}"
+        )
 
     @elapsed
     @retry(**RETRY_PARAMS)
@@ -140,6 +145,7 @@ class Connector:
         """Load Zoom group member data"""
         table_name = "Zoom_GroupMembers"
         self.drop_table(table_name)
+        total_group_members = 0
         for group_id in self._get_group_ids():
             page = 1
             params = {"groupid": group_id, "page_size": 300, "page_number": page}
@@ -149,12 +155,14 @@ class Connector:
                 response = self.client.group.list_members(**params).json()
                 results = response.get("members")
                 if results:
+                    total_group_members += len(results)
                     members = pd.DataFrame(results)
                     members["groupId"] = group_id
                     self.sql.insert_into(table_name, members)
-                    logging.info(f"Inserted {len(members)} records into {table_name}")
+                    logging.debug(f"Inserted {len(members)} records into {table_name}")
                     page += 1
                     params["page"] = page
+        logging.info(f"Inserted {total_group_members} group members into {table_name}")
 
     def _get_students(self):
         """Query database for new students without Zoom accounts"""
