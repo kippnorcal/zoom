@@ -71,7 +71,10 @@ class Connector:
         return user_ids
 
     def _get_meeting_ids(self):
-        """Get list of meeting ids to iterate API calls for past meetings"""
+        """
+        Get list of all meeting uuids that there is not participants 
+        data for yet in the database
+        """
         if self.sql.engine.has_table("Zoom_Participants", schema=self.sql.schema):
             meetings = self.sql.query(
                 """SELECT DISTINCT zm.uuid
