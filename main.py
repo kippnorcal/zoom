@@ -1,6 +1,7 @@
 import datetime
 import logging
 import os
+import time
 import traceback
 from urllib.parse import quote
 
@@ -12,6 +13,13 @@ from zoomus import ZoomClient
 
 import config
 from mailer import Mailer
+from timer import elapsed
+
+
+RETRY_PARAMS = {
+    "stop": stop_after_attempt(3),
+    "wait": wait_exponential(multiplier=2, min=4, max=10),
+}
 
 
 class Connector:
@@ -34,13 +42,13 @@ class Connector:
                 f"No such table {table_name} exists to drop. This command ignored."
             )
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
-    )
+    @elapsed
+    @retry(**RETRY_PARAMS)
     def load_users(self):
         """Load Zoom user data in order to query meetings"""
         page = 1
         table_name = "Zoom_Users"
+        total_users = 0
         response = self.client.user.list(page_size=300, page_number=page).json()
         page_count = response["page_count"]
         if response:
@@ -49,110 +57,66 @@ class Connector:
             response = self.client.user.list(page_size=300, page_number=page).json()
             results = response.get("users")
             if results:
+                total_users += len(results)
                 users = pd.DataFrame(results)
                 users = users.reindex(columns=config.USER_COLUMNS)
                 self.sql.insert_into(table_name, users)
-                logging.info(f"Inserted {len(users)} records into {table_name}")
+                logging.debug(f"Inserted {len(users)} records into {table_name}")
                 page += 1
-
-    def _get_user_ids(self):
-        """Get list of user ids to iterate API calls for meetings"""
-        users = pd.read_sql_table(
-            table_name="Zoom_Users", con=self.sql.engine, schema=self.sql.schema
-        )
-        user_ids = users["id"].values.flatten().tolist()
-        return user_ids
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
-    )
-    def load_meetings(self):
-        """Load Zoom meeting data in order to query past meetings"""
-        table_name = "Zoom_Meetings"
-        self.drop_table(table_name)
-        for user_id in self._get_user_ids():
-            page_token = True
-            meetings = []
-            while page_token:
-                response = self.client.meeting.list(
-                    user_id=user_id, page_size=300, page_token=page_token
-                ).json()
-                results = response.get("meetings")
-                meetings.extend(results)
-                page_token = response["next_page_token"]
-            if meetings:
-                meetings = pd.DataFrame(results)
-                meetings = meetings.reindex(columns=config.MEETING_COLUMNS)
-                self.sql.insert_into(table_name, meetings)
-                logging.debug(
-                    f"Inserted {len(meetings)} meeting records for user {user_id} into {table_name}"
-                )
+        logging.info(f"Inserted {total_users} users into {table_name}")
 
     def _get_meeting_ids(self):
-        """Get list of meeting ids to iterate API calls for past meetings"""
-        meetings = pd.read_sql_table(
-            table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
-        )
-        meetings = meetings[
-            meetings["start_time"] < datetime.datetime.now().strftime("%Y-%m-%d")
-        ]
-        meeting_ids = meetings["id"].values.flatten().tolist()
+        """
+        Get list of all meeting uuids that there is not participants 
+        data for yet in the database
+        """
+        if self.sql.engine.has_table("Zoom_Participants", schema=self.sql.schema):
+            meetings = self.sql.query(
+                """SELECT DISTINCT zm.uuid
+                FROM custom.Zoom_Meetings zm
+                LEFT JOIN custom.Zoom_Participants zp
+                    ON zm.uuid = zp.meeting_uuid
+                WHERE zp.meeting_uuid IS NULL"""
+            )
+        else:
+            meetings = pd.read_sql_table(
+                table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
+            )
+        meeting_ids = meetings["uuid"].values.flatten().tolist()
         return meeting_ids
 
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
-    )
-    def load_past_meetings(self):
-        """Load Zoom past meeting data in order to query participants"""
-        table_name = "Zoom_PastMeetings"
-        self.drop_table(table_name)
-        for meeting_id in self._get_meeting_ids():
-            page_token = True
-            params = {"meeting_id": str(meeting_id), "page_size": 300}
-            while page_token:
-                response = self.client.past_meeting.list(**params).json()
-                results = response.get("meetings")
-                if results:
-                    results = [dict(item, meeting_id=meeting_id) for item in results]
-                    past_meetings = pd.DataFrame(results)
-                    self.sql.insert_into(table_name, past_meetings)
-                    logging.info(
-                        f"Inserted {len(past_meetings)} past meeting records for meeting {meeting_id} into {table_name}"
-                    )
-                page_token = response.get("next_page_token")
-                params["next_page_token"] = page_token
-
-    def _get_past_meeting_uuids(self):
-        """Get list of past meeting uuids to iterate API calls for participants"""
-        meetings = pd.read_sql_table(
-            table_name="Zoom_PastMeetings", con=self.sql.engine, schema=self.sql.schema
-        )
-        meeting_uuids = meetings["uuid"].values.flatten().tolist()
-        return meeting_uuids
-
-    @retry(
-        stop=stop_after_attempt(3), wait=wait_exponential(multiplier=2, min=4, max=10)
-    )
+    @elapsed
+    @retry(**RETRY_PARAMS)
     def load_participants(self):
         """Load Zoom meeting participants"""
         table_name = "Zoom_Participants"
-        self.drop_table(table_name)
-        for uuid in self._get_past_meeting_uuids():
+        uuids = self._get_meeting_ids()
+        total_participants = 0
+        for uuid in uuids:
             page_token = True
-            params = {"meeting_id": uuid, "page_size": 300}
+            params = {"meeting_id": uuid, "page_size": 300, "type": "past"}
             while page_token:
-                response = self.client.past_meeting.get_participants(**params).json()
+                response = self.client.metric.list_participants(**params).json()
+                if response.get("code") == 429:
+                    logging.info("Rate limit reached; waiting 10 seconds...")
+                    time.sleep(10)
                 results = response.get("participants")
                 if results:
                     results = [dict(item, meeting_uuid=uuid) for item in results]
+                    total_participants += len(results)
                     participants = pd.DataFrame(results)
                     self.sql.insert_into(table_name, participants)
-                    logging.info(
+                    logging.debug(
                         f"Inserted  {len(participants)} participants for meeting {uuid} into {table_name}"
                     )
                 page_token = response.get("next_page_token")
                 params["next_page_token"] = page_token
+        logging.info(
+            f"Inserted {total_participants} participants for {len(uuids)} meetings into {table_name}"
+        )
 
+    @elapsed
+    @retry(**RETRY_PARAMS)
     def load_groups(self):
         """Load Zoom permission groups"""
         table_name = "Zoom_Groups"
@@ -175,10 +139,13 @@ class Connector:
         group_ids = groups["id"].values.flatten().tolist()
         return group_ids
 
+    @elapsed
+    @retry(**RETRY_PARAMS)
     def load_group_members(self):
         """Load Zoom group member data"""
         table_name = "Zoom_GroupMembers"
         self.drop_table(table_name)
+        total_group_members = 0
         for group_id in self._get_group_ids():
             page = 1
             params = {"groupid": group_id, "page_size": 300, "page_number": page}
@@ -188,12 +155,14 @@ class Connector:
                 response = self.client.group.list_members(**params).json()
                 results = response.get("members")
                 if results:
+                    total_group_members += len(results)
                     members = pd.DataFrame(results)
                     members["groupId"] = group_id
                     self.sql.insert_into(table_name, members)
-                    logging.info(f"Inserted {len(members)} records into {table_name}")
+                    logging.debug(f"Inserted {len(members)} records into {table_name}")
                     page += 1
                     params["page"] = page
+        logging.info(f"Inserted {total_group_members} group members into {table_name}")
 
     def _get_students(self):
         """Query database for new students without Zoom accounts"""
@@ -201,6 +170,7 @@ class Connector:
             "vw_Zoom_NewStudentAccounts", con=self.sql.engine, schema=self.sql.schema
         )
 
+    @elapsed
     def create_student_accounts(self):
         """Create Zoom accounts for students and add to Students group"""
         students = self._get_students()
@@ -226,6 +196,71 @@ class Connector:
             logging.error(e)
             logging.error(r.text)
 
+    @elapsed
+    @retry(**RETRY_PARAMS)
+    def load_meetings(self):
+        """
+        Load Zoom Meetings data for the prior day based on the last
+        date data is available for in the database. If no prior data
+        exists, it will pull from the start of August for the current
+        school year.
+        """
+        run_date = self.get_last_meeting_date()
+        if run_date >= datetime.datetime.today().date():
+            return
+        table_name = "Zoom_Meetings"
+        page_token = True
+        meetings = []
+        params = {
+            "page_size": 300,
+            "type": "past",
+            "from": run_date,
+            "to": run_date,
+        }
+        while page_token:
+            response = self.client.metric.list_meetings(**params).json()
+            if response.get("code") == 429:
+                logging.info("Rate limit reached; waiting 60 seconds...")
+                time.sleep(60)
+            results = response.get("meetings")
+            if results:
+                meetings.extend(results)
+            page_token = response.get("next_page_token")
+            params["next_page_token"] = page_token
+        if meetings:
+            df = pd.DataFrame(meetings)
+            self.sql.insert_into(table_name, df)
+            logging.info(
+                f"Inserted {len(df)} meeting records into {table_name} for {run_date.strftime('%Y-%m-%d')}"
+            )
+
+    def get_school_start_date(self):
+        """Get the first day in Aug of the current school year"""
+        today = datetime.datetime.today()
+        if today.month > 6:
+            year = today.year
+        else:
+            year = today.year - 1
+        return datetime.date(year, 8, 1)
+
+    def get_last_meeting_date(self):
+        """
+        Get the last date that meeting data is available for in the
+        database, otherwise return the first day in August.
+        """
+        date = self.get_school_start_date()
+        if self.sql.engine.has_table("Zoom_Meetings", schema=self.sql.schema):
+            df = pd.read_sql_table(
+                table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
+            )
+            previous_date = df.start_time.max()
+            if len(df) > 0 and previous_date:
+                previous_date = datetime.datetime.strptime(
+                    previous_date, "%Y-%m-%dT%H:%M:%S%z"
+                )
+                date = previous_date.date() + datetime.timedelta(days=1)
+        return date
+
 
 def main():
     config.set_logging()
@@ -235,7 +270,6 @@ def main():
     connector.load_group_members()
     connector.create_student_accounts()
     connector.load_meetings()
-    connector.load_past_meetings()
     connector.load_participants()
 
 
