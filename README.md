@@ -45,19 +45,6 @@ RECIPIENT_EMAIL=
 
 # Enable Debug Logging (Optional)
 DEBUG_MODE=
-
-# Database Credentials
-DB=
-DB_SERVER=
-DB_USER=
-DB_PWD=
-DB_SCHEMA=
-
-# Email Notifications
-ENABLE_MAILER=1
-SENDER_EMAIL=
-SENDER_PWD=
-RECIPIENT_EMAIL=
 ```
 
 4. Build the container
