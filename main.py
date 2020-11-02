@@ -330,13 +330,16 @@ class Connector:
 def main():
     config.set_logging()
     connector = Connector()
-    connector.load_users()
-    connector.load_groups()
-    connector.load_group_members()
-    connector.create_student_accounts()
-    connector.load_meetings()
-    connector.load_participants()
-    connector.get_meeting_settings()
+    if config.USERS:
+        connector.load_users()
+        connector.load_groups()
+        connector.load_group_members()
+    if config.ACCOUNTS:
+        connector.create_student_accounts()
+    if config.MEETINGS:
+        connector.load_meetings()
+        connector.load_participants()
+        connector.get_meeting_settings()
 
 
 if __name__ == "__main__":
