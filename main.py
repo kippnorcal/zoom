@@ -65,7 +65,7 @@ class Connector:
                 page += 1
         logging.info(f"Inserted {total_users} users into {table_name}")
 
-    def _get_meeting_ids(self):
+    def _get_meeting_uuids(self):
         """
         Get list of all meeting uuids that there is not participants 
         data for yet in the database
@@ -90,7 +90,7 @@ class Connector:
     def load_participants(self):
         """Load Zoom meeting participants"""
         table_name = "Zoom_Participants"
-        uuids = self._get_meeting_ids()
+        uuids = self._get_meeting_uuids()
         total_participants = 0
         for uuid in uuids:
             page_token = True
@@ -261,6 +261,71 @@ class Connector:
                 date = previous_date.date() + datetime.timedelta(days=1)
         return date
 
+    def get_meeting_settings(self):
+        """Load Zoom meeting settings"""
+        table_name = "Zoom_Meeting_Settings"
+        meeting_ids = self._get_meeting_ids()
+        total_settings = 0
+        for meeting_id in meeting_ids:
+            page_token = True
+            params = {"id": meeting_id, "page_size": 300, "type": "past"}
+            results = []
+            while page_token:
+                response = self.client.meeting.get(**params).json()
+                if response.get("code") == 429:
+                    logging.info("Rate limit reached; waiting 10 seconds...")
+                    time.sleep(10)
+                if response.get("code") == 3001:
+                    logging.debug(response.get("message"))
+                settings = response.get("settings", {})
+                results.append(self._format_settings_data(settings, meeting_id))
+                page_token = response.get("next_page_token")
+                params["next_page_token"] = page_token
+
+            if results:
+                total_settings += len(results)
+                settings = pd.DataFrame(results)
+                self.sql.insert_into(table_name, settings)
+                logging.debug(
+                    f"Inserted  {len(settings)} settings for meeting {meeting_id} into {table_name}"
+                )
+
+        logging.info(
+            f"Inserted {total_settings} settings for {len(meeting_ids)} meetings into {table_name}"
+        )
+
+    def _get_meeting_ids(self):
+        """
+        Get list of all meeting ids that there is not settings 
+        data for yet in the database
+        """
+        if self.sql.engine.has_table("Zoom_Meeting_Settings", schema=self.sql.schema):
+            meetings = self.sql.query(
+                """SELECT DISTINCT zm.id
+                FROM custom.Zoom_Meetings zm
+                LEFT JOIN custom.Zoom_Meeting_Settings zms
+                    ON zm.id = zms.meeting_id
+                WHERE zms.meeting_id IS NULL"""
+            )
+        else:
+            meetings = pd.read_sql_table(
+                table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
+            )
+        meeting_ids = meetings["id"].values.flatten().tolist()
+        return meeting_ids
+
+    def _format_settings_data(self, item, meeting_id):
+        """Extract meeting settings fields related to authentication."""
+        return {
+            "meeting_id": meeting_id,
+            "enforce_login": item.get("enforce_login"),
+            "enforce_login_domains": item.get("enforce_login_domains"),
+            "waiting_room": item.get("waiting_room"),
+            "meeting_authentication": item.get("meeting_authentication"),
+            "authentication_domains": item.get("authentication_domains"),
+            "authentication_name": item.get("authentication_name"),
+        }
+
 
 def main():
     config.set_logging()
@@ -271,6 +336,7 @@ def main():
     connector.create_student_accounts()
     connector.load_meetings()
     connector.load_participants()
+    connector.get_meeting_settings()
 
 
 if __name__ == "__main__":
