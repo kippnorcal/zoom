@@ -1,13 +1,29 @@
+import argparse
 import logging
 import os
 import sys
 
 from sqlsorcery import SQLite, PostgreSQL, MSSQL
 
+
+parser = argparse.ArgumentParser(description="Pick which ones")
+parser.add_argument("--debug", help="Enable debug logging", action="store_true")
+parser.add_argument("--all", help="Import all data", action="store_true")
+parser.add_argument("--accounts", help="Create student accounts", action="store_true")
+parser.add_argument("--users", help="Import users and groups", action="store_true")
+parser.add_argument(
+    "--meetings", help="Import meetings and participants", action="store_true"
+)
+args, _ = parser.parse_known_args()
+
 ENABLE_MAILER = int(os.getenv("ENABLE_MAILER", default=0))
-DEBUG_MODE = int(os.getenv("DEBUG_MODE", default=0))
+DEBUG_MODE = args.debug or int(os.getenv("DEBUG_MODE", default=0))
 ZOOM_KEY = os.getenv("ZOOM_KEY")
 ZOOM_SECRET = os.getenv("ZOOM_SECRET")
+ACCOUNTS = args.accounts or args.all
+USERS = args.users or args.all
+MEETINGS = args.meetings or args.all
+
 
 USER_COLUMNS = [
     "id",
