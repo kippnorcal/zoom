@@ -272,9 +272,11 @@ class Connector:
             results = []
             while page_token:
                 response = self.client.meeting.get(**params).json()
+                # HTTP Error 429: Too Many Requests
                 if response.get("code") == 429:
                     logging.info("Rate limit reached; waiting 10 seconds...")
                     time.sleep(10)
+                # Zoom Error 3001: Meeting does not exist
                 if response.get("code") == 3001:
                     logging.debug(response.get("message"))
                 settings = response.get("settings", {})
