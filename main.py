@@ -6,6 +6,7 @@ import traceback
 from urllib.parse import quote
 
 import pandas as pd
+import requests
 from sqlalchemy.schema import DropTable
 from sqlalchemy import inspect
 from sqlalchemy.exc import NoSuchTableError
