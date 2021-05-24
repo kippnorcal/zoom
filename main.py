@@ -7,6 +7,7 @@ from urllib.parse import quote
 
 import pandas as pd
 from sqlalchemy.schema import DropTable
+from sqlalchemy import inspect
 from sqlalchemy.exc import NoSuchTableError
 from tenacity import retry, wait_exponential, stop_after_attempt
 from zoomus import ZoomClient
@@ -31,6 +32,7 @@ class Connector:
     def __init__(self):
         self.client = ZoomClient(config.ZOOM_KEY, config.ZOOM_SECRET)
         self.sql = config.db_connection()
+        self.inspector = inspect(self.sql.engine)
 
     def drop_table(self, table_name):
         """Drop table before loading new data to reset schema on load"""
@@ -67,10 +69,12 @@ class Connector:
 
     def _get_meeting_ids(self):
         """
-        Get list of all meeting uuids that there is not participants 
+        Get list of all meeting uuids that there is not participants
         data for yet in the database
         """
-        if self.sql.engine.has_table("Zoom_Participants", schema=self.sql.schema):
+        if self.inspector.has_table(
+            table_name="Zoom_Participants", schema=self.sql.schema
+        ):
             meetings = self.sql.query(
                 """SELECT DISTINCT zm.uuid
                 FROM custom.Zoom_Meetings zm
@@ -249,7 +253,7 @@ class Connector:
         database, otherwise return the first day in August.
         """
         date = self.get_school_start_date()
-        if self.sql.engine.has_table("Zoom_Meetings", schema=self.sql.schema):
+        if self.inspector.has_table(table_name="Zoom_Meetings", schema=self.sql.schema):
             df = pd.read_sql_table(
                 table_name="Zoom_Meetings", con=self.sql.engine, schema=self.sql.schema
             )
